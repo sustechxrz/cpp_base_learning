@@ -37,7 +37,9 @@ int main()
 {
     RenderWindow window(VideoMode(WinWidth, WinHeight), "Racing");
     window.setFramerateLimit(60);
-
+    Texture bg;
+    bg.loadFromFile("background.jpg");
+    Sprite s(bg, IntRect(0, 0, WinWidth, WinHeight / 2));
     vector <Road>roads;
     for (int i = 0; i < roadCount; i++) {
         float curve = (i > 0 && i < 300) ? 0.5 : -0.5;
@@ -82,6 +84,8 @@ int main()
             else {
                 continue;
             }
+            s.setTextureRect(IntRect(0, 0, WinWidth, minY));
+            window.draw(s);
             Road& pre = roads[(i - 1) % roadCount];
             Color grass = (i / 3) % 2 ? Color(16, 210, 16) : Color(0, 199, 0);
             Color edge = (i / 3) % 2 ? Color(0, 0, 0) : Color(255, 255, 255);
