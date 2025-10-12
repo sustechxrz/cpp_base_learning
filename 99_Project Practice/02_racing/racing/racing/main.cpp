@@ -43,6 +43,8 @@ int main()
         Road r(0, 0, (i + 1) * roadSegLength);
         roads.push_back(r);
     }
+    int cameraX = 0;
+    int cameraZ = 0;
 
     while (window.isOpen())
     {
@@ -52,19 +54,23 @@ int main()
             if (event.type == Event::Closed)
                 window.close();
         }
+        if (Keyboard::isKeyPressed(Keyboard::Up)) cameraZ += roadSegLength;
+        if (Keyboard::isKeyPressed(Keyboard::Down)) cameraZ -= roadSegLength;
+        if (Keyboard::isKeyPressed(Keyboard::Left)) cameraX -= 100;
+        if (Keyboard::isKeyPressed(Keyboard::Right)) cameraX += 100;
         window.clear();
-        //DrawTrape(window, Color::White, WinWidth/2, 500, 200, WinWidth/2, 300, 100);
-        for (int i = 0; i < 300; ++i) {
-            Road& now = roads[i];
-            now.project(0, 1600, 0);
+        int roadIndex = cameraZ / roadSegLength;
+        for (int i = roadIndex; i < roadIndex + 300; ++i) {
+            Road& now = roads[i % roadCount];
+            now.project(cameraX, 1600, cameraZ);
             if (!i) {
                 continue;
             }
-            Road& pre = roads[i - 1];
+            Road& pre = roads[(i - 1) % roadCount];
             Color grass = (i / 3) % 2 ? Color(16, 210, 16) : Color(0, 199, 0);
             Color edge = (i / 3) % 2 ? Color(0, 0, 0) : Color(255, 255, 255);
             Color road = (i / 3) % 2 ? Color(105, 105, 105) : Color(101, 101, 101);
-            DrawTrape(window, grass, pre.X, pre.Y, WinWidth, now.X, now.Y, WinWidth);
+            DrawTrape(window, grass, pre.X, pre.Y, WinWidth*10, now.X, now.Y, WinWidth*10);
             DrawTrape(window, edge, pre.X, pre.Y, pre.W * 1.3, now.X, now.Y, now.W * 1.3);
             DrawTrape(window, road, pre.X, pre.Y, pre.W, now.X, now.Y, now.W);
         }
