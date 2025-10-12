@@ -7,13 +7,13 @@ const int WinWidth = 1024;
 const int WinHeight = 768;
 const int roadWidth = 1800;
 const int roadSegLength = 180;
-const int roadCount = 2000;
+const int roadCount = 1884;
 
 struct Road {
     float x, y, z;
     float X, Y, W;
-    float scale;
-    Road(int _x, int _y, int _z) : x(_x), y(_y), z(_z) {}
+    float scale,curve;
+    Road(int _x, int _y, int _z, float _c) : x(_x), y(_y), z(_z), curve(_c) {}
     void project(int camX, int camY, int camZ) {
         scale = 1.0f / (z - camZ);
         X = (1 + (x - camX) * scale) * WinWidth / 2;
@@ -40,10 +40,12 @@ int main()
 
     vector <Road>roads;
     for (int i = 0; i < roadCount; i++) {
-        Road r(0, 0, (i + 1) * roadSegLength);
+        float curve = (i > 0 && i < 300) ? 0.5 : -0.5;
+        Road r(0, 1600 * sin(i / 30.0), (i + 1) * roadSegLength, curve);
         roads.push_back(r);
     }
     int cameraX = 0;
+    float cameraY = 1600;
     int cameraZ = 0;
 
     while (window.isOpen())
@@ -58,12 +60,26 @@ int main()
         if (Keyboard::isKeyPressed(Keyboard::Down)) cameraZ -= roadSegLength;
         if (Keyboard::isKeyPressed(Keyboard::Left)) cameraX -= 100;
         if (Keyboard::isKeyPressed(Keyboard::Right)) cameraX += 100;
+        int totalLength = roadCount * roadSegLength;
+        if (cameraZ >= totalLength) cameraZ -= totalLength;
+        if (cameraZ < 0) cameraZ += totalLength;
         window.clear();
         int roadIndex = cameraZ / roadSegLength;
+        float x = 0, dx = 0;
+        cameraY = 1600 + roads[roadIndex].y;
+        int minY = WinHeight;
         for (int i = roadIndex; i < roadIndex + 300; ++i) {
             Road& now = roads[i % roadCount];
-            now.project(cameraX, 1600, cameraZ);
+            now.project(cameraX - x, cameraY, cameraZ - (i >= roadCount ? totalLength : 0 ));
+            dx += now.curve;
+            x += dx;
             if (!i) {
+                continue;
+            }
+            if (now.Y < minY) {
+                minY = now.Y;
+            }
+            else {
                 continue;
             }
             Road& pre = roads[(i - 1) % roadCount];
