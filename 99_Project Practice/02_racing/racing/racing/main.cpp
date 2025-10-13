@@ -8,17 +8,57 @@ const int WinHeight = 768;
 const int roadWidth = 1800;
 const int roadSegLength = 180;
 const int roadCount = 1884;
+const int itemSize = 450;
+const char charItem[] = "1234567890+*/-%";
 
 struct Road {
     float x, y, z;
     float X, Y, W;
     float scale,curve;
-    Road(int _x, int _y, int _z, float _c) : x(_x), y(_y), z(_z), curve(_c) {}
+    Sprite spr;
+    int operatorIndex;
+    int numberIndex;
+
+    Road(int _x, int _y, int _z, float _c, Sprite _spr) : x(_x), y(_y), z(_z), curve(_c), spr(_spr) {
+        generateItem(false);
+    }
+
+    void generateItem(bool alwaysGen) {
+        if (alwaysGen || rand() % 200 == 0) {
+            operatorIndex = (rand() % 5) + 10;
+            numberIndex = rand() % 10;
+            if (numberIndex == 9) {
+                numberIndex = 0;
+            }
+        }
+        else {
+            operatorIndex = -1;
+        }
+    }
     void project(int camX, int camY, int camZ) {
         scale = 1.0f / (z - camZ);
         X = (1 + (x - camX) * scale) * WinWidth / 2;
         Y = (1 - (y - camY) * scale) * WinHeight / 2;
         W = scale * roadWidth * WinWidth / 2;
+    }
+
+    void drawItem(RenderWindow& window, int index, int xPlacement) {
+        Sprite s = spr;
+        int left = (index % 5) * itemSize;
+        int top = (index / 5) * itemSize;
+
+        s.setTextureRect(IntRect(left, top, itemSize,itemSize));
+        s.setScale(W / itemSize, W / itemSize);
+        s.setPosition(X + xPlacement * W, Y - W);
+        window.draw(s);
+    }
+
+    void drawItem(RenderWindow& window) {
+        if (operatorIndex == -1) {
+            return;
+        }
+        drawItem(window, operatorIndex, -1);
+        drawItem(window, numberIndex, 0);
     }
 
 };
@@ -33,6 +73,52 @@ void DrawTrape(RenderWindow& window, Color c, int x1, int y1, int w1, int x2, in
     window.draw(polygon);
 }
 
+void DrawNumber(RenderWindow& window, Sprite sitem, int number, int x, int y) {
+    char ch[100] = { '\0' };
+    _itoa_s(number, ch, 10);
+    int len = strlen(ch);
+    for (int i = 0; i < len; ++i) {
+        Sprite s = sitem;
+        int index = -1;
+        for (int j = 0; j < charItem[j]; ++j) {
+            if (charItem[j] == ch[i]) {
+                index = j;
+            }
+        }
+        int left = (index % 5) * itemSize;
+        int top = (index / 5) * itemSize;
+        s.setTextureRect(IntRect(left, top, itemSize, itemSize));
+        s.setScale(0.18, 0.18);
+        s.setPosition(x + 0.13 * i * itemSize, y);
+        window.draw(s);
+    }
+}
+
+int caculateScore(int score, int operatorIndex, int numberIndex) {
+    char op = charItem[operatorIndex];
+    int number = charItem[numberIndex] - '0';
+    if (op == '+') {
+        score += number;
+    }
+    else if (op == '-') {
+        score -= number;
+    }
+    else if (op == '*') {
+        score *= number;
+    }
+    else if (op == '/') {
+        if (number) {
+            score /= number;
+        }
+    }
+    else if (op == '%') {
+        if (number) {
+            score %= number;
+        }
+    }
+    return score;
+}
+
 int main()
 {
     RenderWindow window(VideoMode(WinWidth, WinHeight), "Racing");
@@ -40,15 +126,23 @@ int main()
     Texture bg;
     bg.loadFromFile("background.jpg");
     Sprite s(bg, IntRect(0, 0, WinWidth, WinHeight / 2));
+
+    Texture item;
+    item.loadFromFile("item.png");
+    Sprite sitem(item);
+
+    int score = 0;
+
     vector <Road>roads;
     for (int i = 0; i < roadCount; i++) {
         float curve = (i > 0 && i < 300) ? 0.5 : -0.5;
-        Road r(0, 1600 * sin(i / 30.0), (i + 1) * roadSegLength, curve);
+        Road r(0, 0, (i + 1) * roadSegLength, curve,sitem);
         roads.push_back(r);
     }
     int cameraX = 0;
     float cameraY = 1600;
     int cameraZ = 0;
+    int speed = 100;
 
     while (window.isOpen())
     {
@@ -58,8 +152,15 @@ int main()
             if (event.type == Event::Closed)
                 window.close();
         }
-        if (Keyboard::isKeyPressed(Keyboard::Up)) cameraZ += roadSegLength;
-        if (Keyboard::isKeyPressed(Keyboard::Down)) cameraZ -= roadSegLength;
+        if (Keyboard::isKeyPressed(Keyboard::Up)) {
+            speed += 2;
+            if (speed > 1000) speed = 1000;
+        }
+        if (Keyboard::isKeyPressed(Keyboard::Down)) {
+            speed -= 2;
+            if (speed < 100) speed = 100;
+        }
+        cameraZ += speed;
         if (Keyboard::isKeyPressed(Keyboard::Left)) cameraX -= 100;
         if (Keyboard::isKeyPressed(Keyboard::Right)) cameraX += 100;
         int totalLength = roadCount * roadSegLength;
@@ -78,6 +179,13 @@ int main()
             if (!i) {
                 continue;
             }
+            if (now.Y >= WinHeight) {
+                if (now.operatorIndex != -1) {
+                    score = caculateScore(score, now.operatorIndex, now.numberIndex);
+                    now.operatorIndex = -1;
+                    roads[(i + 1500) % roadCount].generateItem(true);
+                }
+            }
             if (now.Y < minY) {
                 minY = now.Y;
             }
@@ -86,6 +194,7 @@ int main()
             }
             s.setTextureRect(IntRect(0, 0, WinWidth, minY));
             window.draw(s);
+            DrawNumber(window, sitem, score, 10, 10);
             Road& pre = roads[(i - 1) % roadCount];
             Color grass = (i / 3) % 2 ? Color(16, 210, 16) : Color(0, 199, 0);
             Color edge = (i / 3) % 2 ? Color(0, 0, 0) : Color(255, 255, 255);
@@ -93,6 +202,9 @@ int main()
             DrawTrape(window, grass, pre.X, pre.Y, WinWidth*10, now.X, now.Y, WinWidth*10);
             DrawTrape(window, edge, pre.X, pre.Y, pre.W * 1.3, now.X, now.Y, now.W * 1.3);
             DrawTrape(window, road, pre.X, pre.Y, pre.W, now.X, now.Y, now.W);
+        }
+        for (int i = roadIndex + 300; i > roadIndex; --i) {
+                roads[i % roadCount].drawItem(window);
         }
         window.display();
     }
