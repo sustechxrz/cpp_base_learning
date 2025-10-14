@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <vector>
 using namespace sf;
 using namespace std;
@@ -131,6 +132,18 @@ int main()
     item.loadFromFile("item.png");
     Sprite sitem(item);
 
+    SoundBuffer buffer[5];
+    Sound sound,bgm;
+    buffer[0].loadFromFile("get.mp3");
+    buffer[1].loadFromFile("jump.mp3");
+    buffer[2].loadFromFile("falldown.mp3");
+    buffer[3].loadFromFile("tianfuyue.mp3");
+    buffer[4].loadFromFile("liumaishenjian.mp3");
+
+    bgm.setBuffer(buffer[3]);
+    bgm.setLoop(true);
+    bgm.play();
+
     int score = 0;
 
     vector <Road>roads;
@@ -143,6 +156,9 @@ int main()
     float cameraY = 1600;
     int cameraZ = 0;
     int speed = 100;
+    bool isJumping = false;
+    float dy = 0, y = 0;
+
 
     while (window.isOpen())
     {
@@ -155,14 +171,42 @@ int main()
         if (Keyboard::isKeyPressed(Keyboard::Up)) {
             speed += 2;
             if (speed > 1000) speed = 1000;
+            if (speed == 500) {
+                speed = 502;
+                bgm.setBuffer(buffer[4]);
+                bgm.play();
+            }
         }
         if (Keyboard::isKeyPressed(Keyboard::Down)) {
             speed -= 2;
             if (speed < 100) speed = 100;
+            if (speed == 500) {
+                speed = 498;
+                bgm.setBuffer(buffer[3]);
+                bgm.play();
+            }
         }
         cameraZ += speed;
         if (Keyboard::isKeyPressed(Keyboard::Left)) cameraX -= 100;
         if (Keyboard::isKeyPressed(Keyboard::Right)) cameraX += 100;
+
+        if (Keyboard::isKeyPressed(Keyboard::Space) && !isJumping) {
+            sound.setBuffer(buffer[1]);
+            sound.play();
+            isJumping = true;
+            dy = 150;
+        }
+        if (isJumping) {
+            dy -= 5;
+            y += dy;
+            if (y <= 0){
+                y = 0;
+                isJumping = false;
+                sound.setBuffer(buffer[2]);
+                sound.play();
+            }
+        }
+        
         int totalLength = roadCount * roadSegLength;
         if (cameraZ >= totalLength) cameraZ -= totalLength;
         if (cameraZ < 0) cameraZ += totalLength;
@@ -173,17 +217,19 @@ int main()
         int minY = WinHeight;
         for (int i = roadIndex; i < roadIndex + 300; ++i) {
             Road& now = roads[i % roadCount];
-            now.project(cameraX - x, cameraY, cameraZ - (i >= roadCount ? totalLength : 0 ));
+            now.project(cameraX - x, cameraY + y, cameraZ - (i >= roadCount ? totalLength : 0 ));
             dx += now.curve;
             x += dx;
             if (!i) {
                 continue;
             }
             if (now.Y >= WinHeight) {
-                if (now.operatorIndex != -1) {
+                if (!isJumping && now.operatorIndex != -1) {
                     score = caculateScore(score, now.operatorIndex, now.numberIndex);
                     now.operatorIndex = -1;
                     roads[(i + 1500) % roadCount].generateItem(true);
+                    sound.setBuffer(buffer[0]);
+                    sound.play();
                 }
             }
             if (now.Y < minY) {
